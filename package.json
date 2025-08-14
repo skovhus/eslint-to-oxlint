@@ -1,0 +1,22 @@
+{
+  "name": "eslint-to-oxlint",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.12.2",
+  "dependencies": {
+    "eslint-plugin-oxlint": "^1.11.2",
+    "jsonc-parser": "^3.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.2.1",
+    "oxlint": "^1.11.2",
+    "typescript": "^5.9.2"
+  }
+}
