@@ -1,0 +1,116 @@
+{
+  "plugins": ["import", "jsdoc", "oxc", "promise", "react", "typescript", "unicorn"],
+  "rules": {
+    // TODO: Investigate how to enable these that are enabled by default in oxlint
+    "no-control-regex": "off",
+    "no-extra-boolean-cast": "off",
+    "no-unused-labels": "off",
+    "no-unused-vars": "off", // TODO: disabled as it doesn't work well when not having `unused-imports/no-unused-imports` (ESLint removes it, but oxlint complaints about it)
+    "no-useless-escape": "off",
+    "react-hooks/exhaustive-deps": "off",
+    "react/jsx-key": "off",
+
+    // TODO: New oxlint rules that we ignore for now, but should evaluate
+    "no-this-alias": "off",
+    "promise/no-callback-in-promise": "off",
+    "react/no-children-prop": "off",
+    "typescript/no-wrapper-object-types": "off", // probably just disable this for tests
+    "unicorn/no-await-in-promise-methods": "off", // Some false positives (especially in tests)
+    "unicorn/no-new-array": "off", // stylistic, but should enable
+    "unicorn/no-single-promise-in-promise-methods": "off", // Stylistic. Could enable this
+    "unicorn/no-thenable": "off",
+    "unicorn/no-useless-fallback-in-spread": "off",
+    "unicorn/no-useless-spread": "off",
+
+    // Rules we used to have in ESLint, but we temporarily disabled in oxlint
+    "import/no-cycle": "off", // This seems like it never worked in ESLint, so tons to fix!
+    "react-hooks/rules-of-hooks": "off", // broken "export const Component = observer(function _ActiveIssuesPage() {"
+
+    // Default rules that seems a bit too pedantic
+    "jsdoc/require-yields": "off",
+    "require-property-type": "off", // Seems like a weird default rule, type system already has this
+    "promise/valid-params": "off", // Catch doesn't need a function
+
+    // General rules
+    "curly": "error",
+    "default-case": "error",
+    "eqeqeq": ["error", "always", { "null": "ignore" }],
+    "no-array-constructor": "error",
+    "no-console": "warn",
+    "no-constant-condition": ["error", { "checkLoops": false }],
+    "no-duplicate-imports": "error",
+    "no-empty": "error",
+    "no-empty-function": "warn",
+    "no-fallthrough": "error",
+    "no-regex-spaces": "error",
+    "no-template-curly-in-string": "error",
+    "no-var": "warn",
+    "react/jsx-no-target-blank": "error",
+    "typescript/array-type": ["error", { "default": "array" }],
+    "typescript/consistent-type-imports": ["warn", { "fixStyle": "inline-type-imports", "prefer": "type-imports" }],
+    "typescript/no-duplicate-enum-values": "error",
+    "typescript/no-explicit-any": "warn",
+    "typescript/no-extra-non-null-assertion": "error",
+    "typescript/no-import-type-side-effects": "warn",
+    "typescript/no-misused-new": "error",
+    "typescript/no-non-null-asserted-optional-chain": "error",
+    "typescript/no-this-alias": "error",
+    "typescript/no-unnecessary-type-constraint": "error",
+    "typescript/no-unsafe-declaration-merging": "error",
+    "typescript/prefer-as-const": "error",
+    "typescript/triple-slash-reference": "error"
+  },
+  "overrides": [
+    {
+      "files": ["**/*.js"],
+      "rules": {
+        "eqeqeq": ["error", "always", { "null": "ignore" }],
+        "no-caller": "error",
+        "no-case-declarations": "off",
+        "no-constant-condition": ["error", { "checkLoops": false }],
+        "no-control-regex": "off",
+        "no-debugger": "error",
+        "no-eval": "error",
+        "no-extra-boolean-cast": "off",
+        "no-inner-declarations": "off",
+        "no-prototype-builtins": "off",
+        "no-redeclare": "off",
+        "no-unused-labels": "off",
+        "no-unused-vars": "off",
+        "no-useless-escape": "off",
+        "prefer-spread": "off",
+        "typescript/no-var-requires": "off"
+      }
+    },
+    {
+      "files": ["**/*.{test,bench}.ts", "**/__mocks__/*", "**/jest/*.ts"],
+      "rules": {
+        "typescript/no-explicit-any": "off"
+      }
+    }
+  ],
+  "ignorePatterns": [
+    "**/.eslintrc.js",
+    "**/vite.config.js",
+    "!.snaplet",
+    "!.github",
+    "!.storybook",
+    "!.syncpackrc.ts",
+    "api/src/temporal/workflow-bundle.js",
+    "app-salesforce/force-app",
+    "app-salesforce/typings/**/*.d.ts",
+    "app-salesforce/vendor",
+    "external-apis/src/gitlab/zeus/*.ts",
+    "mobile-ios/DocumentUtils/Sources/DocumentUtils/Resources",
+    "mobile-ios/Sourcery"
+  ],
+  "settings": {
+    "jsdoc": {
+      "tagNamePreference": {
+        // FIXME: Bug in oxlint, invalid tag name found.
+        "inheritDoc": "inheritDoc"
+      }
+    }
+  },
+  "$schema": "./node_modules/oxlint/configuration_schema.json"
+}

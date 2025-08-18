@@ -1,0 +1,195 @@
+{
+  "extends": ["../.oxlintrc.json"],
+  "plugins": ["vitest"], // FIXME: does not seem to work as expected, focused/skipped test not reported even though they are listed as correctness
+  "rules": {
+    // FIXME: bug in vitest (the Jest plugin isn't even enabled)
+    "jest/expect-expect": "off",
+    "jest/valid-expect": "off",
+    "jest/valid-describe-callback": "off",
+    "jest/require-to-throw-message": "off",
+    "jest/no-standalone-expect": "off",
+    "jest/no-conditional-expect": "off",
+
+    "no-restricted-globals": [
+      "error",
+      { "name": "location", "message": "Get location from useLocation hook instead" },
+      {
+        "name": "document",
+        "message": "Use self.document instead. Prevents variable conflicts when using Document model often named document too."
+      },
+      {
+        "name": "open",
+        "message": "Use self.open instead. Prevents variable conflicts when using arguments / variables named open too."
+      }
+    ],
+    "no-restricted-imports": [
+      "error",
+      {
+        "patterns": [],
+        "paths": [
+          {
+            "name": "react-router",
+            "importNames": ["Prompt"],
+            "message": "Please use PromptOnNavigation or usePromptOnNavigation instead"
+          },
+          {
+            "name": "react-router",
+            "importNames": ["useLoaderData"],
+            "message": "Please use useRouteData from ~/routing/utils/useRouteData instead"
+          },
+          {
+            "name": "react-router",
+            "importNames": ["redirect", "replace"],
+            "message": "Please import from ~/routing/redirects instead"
+          },
+          { "name": "react-use", "message": "Please import from @linear/orbiter/hooks/react-use instead" },
+          { "name": "lodash/uniq", "importNames": ["default"], "message": "Please use <array>.distinct() instead" },
+          {
+            "name": "date-fns",
+            "importNames": ["format", "formatRelative"],
+            "message": "Please use ~/utils/time instead"
+          },
+          { "name": "date-fns/format", "importNames": ["default"], "message": "Please use ~/utils/time instead" },
+          {
+            "name": "date-fns/formatRelative",
+            "importNames": ["default"],
+            "message": "Please use ~/utils/time instead"
+          },
+          { "name": "lodash", "importNames": ["default"], "message": "Please import individual methods instead" },
+          {
+            "name": "lodash/uniqWith",
+            "importNames": ["default"],
+            "message": "uniqWith is slow and causes performance issues on large workspaces, prefer uniqBy or use a Set"
+          },
+          { "name": "@linear/common/auth/ApiRouter", "message": "Do not import API router code to the client" },
+          { "name": "lodash/deburr", "importNames": ["default"], "message": "Please use ~/utils/deburr instead" }
+        ]
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["**/src/editor/**/*.ts", "**/src/editor/**/*.tsx"],
+      "rules": {
+        "typescript/no-explicit-any": "off"
+      }
+    },
+    {
+      "files": ["**/src/views/App/RouteDataLoaders.ts"],
+      "rules": {
+        "no-restricted-imports": ["error", { "patterns": [{ "group": ["*/action/*"] }] }]
+      }
+    },
+    {
+      "files": [
+        "**/src/views/Auth/**/*.ts",
+        "**/src/views/Auth/**/*.tsx",
+        "**/src/views/Login/**/*.ts",
+        "**/src/views/Login/**/*.tsx",
+        "**/src/components/ErrorBoundary/**/*.tsx",
+        "**/src/components/LoadingDone/*.tsx"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["*/hooks/useStore"],
+                "message": "The store might not be available, use getApplicationStore in component or useApplicationStore for views instead"
+              }
+            ],
+            "paths": [
+              {
+                "name": "react-router",
+                "importNames": ["Prompt"],
+                "message": "Please use PromptOnNavigation or usePromptOnNavigation instead"
+              },
+              {
+                "name": "react-router",
+                "importNames": ["useLoaderData"],
+                "message": "Please use useRouteData from ~/routing/utils/useRouteData instead"
+              },
+              {
+                "name": "react-router",
+                "importNames": ["redirect", "replace"],
+                "message": "Please import from ~/routing/redirects instead"
+              },
+              { "name": "react-use", "message": "Please import from @linear/orbiter/hooks/react-use instead" },
+              { "name": "lodash/uniq", "importNames": ["default"], "message": "Please use <array>.distinct() instead" },
+              {
+                "name": "date-fns",
+                "importNames": ["format", "formatRelative"],
+                "message": "Please use ~/utils/time instead"
+              },
+              { "name": "date-fns/format", "importNames": ["default"], "message": "Please use ~/utils/time instead" },
+              {
+                "name": "date-fns/formatRelative",
+                "importNames": ["default"],
+                "message": "Please use ~/utils/time instead"
+              },
+              { "name": "lodash", "importNames": ["default"], "message": "Please import individual methods instead" },
+              {
+                "name": "lodash/uniqWith",
+                "importNames": ["default"],
+                "message": "uniqWith is slow and causes performance issues on large workspaces, prefer uniqBy or use a Set"
+              },
+              { "name": "@linear/common/auth/ApiRouter", "message": "Do not import API router code to the client" },
+              { "name": "lodash/deburr", "importNames": ["default"], "message": "Please use ~/utils/deburr instead" }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["**/src/models/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "warn",
+          {
+            "patterns": [{ "group": ["*components*", "*/views/*"] }],
+            "paths": [
+              {
+                "name": "react-router",
+                "importNames": ["Prompt"],
+                "message": "Please use PromptOnNavigation or usePromptOnNavigation instead"
+              },
+              {
+                "name": "react-router",
+                "importNames": ["useLoaderData"],
+                "message": "Please use useRouteData from ~/routing/utils/useRouteData instead"
+              },
+              {
+                "name": "react-router",
+                "importNames": ["redirect", "replace"],
+                "message": "Please import from ~/routing/redirects instead"
+              },
+              { "name": "react-use", "message": "Please import from @linear/orbiter/hooks/react-use instead" },
+              { "name": "lodash/uniq", "importNames": ["default"], "message": "Please use <array>.distinct() instead" },
+              {
+                "name": "date-fns",
+                "importNames": ["format", "formatRelative"],
+                "message": "Please use ~/utils/time instead"
+              },
+              { "name": "date-fns/format", "importNames": ["default"], "message": "Please use ~/utils/time instead" },
+              {
+                "name": "date-fns/formatRelative",
+                "importNames": ["default"],
+                "message": "Please use ~/utils/time instead"
+              },
+              { "name": "lodash", "importNames": ["default"], "message": "Please import individual methods instead" },
+              {
+                "name": "lodash/uniqWith",
+                "importNames": ["default"],
+                "message": "uniqWith is slow and causes performance issues on large workspaces, prefer uniqBy or use a Set"
+              },
+              { "name": "@linear/common/auth/ApiRouter", "message": "Do not import API router code to the client" },
+              { "name": "lodash/deburr", "importNames": ["default"], "message": "Please use ~/utils/deburr instead" },
+              { "name": "@linear/editor", "message": "Please import specific modules from @linear/editor/* instead" }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

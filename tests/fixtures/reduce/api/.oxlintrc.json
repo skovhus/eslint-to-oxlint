@@ -1,0 +1,276 @@
+{
+  "extends": ["../.oxlintrc.json"],
+  "plugins": ["jest"],
+  "rules": {
+    // TODO: Next steps after oxlint lands:
+    "jest/no-conditional-expect": "off",
+    "jest/no-disabled-tests": "off",
+    "no-empty-function": "off",
+    "no-unsafe-optional-chaining": "off",
+    "promise/no-callback-in-promise": "off",
+    "typescript/consistent-type-imports": "off",
+    "typescript/no-import-type-side-effects": "off",
+
+    // Default rules we disable:
+    "jest/no-standalone-expect": "off", // Does not work with our custom itc setup
+    "jest/require-to-throw-message": "off",
+
+    // Buggy rules:
+    "jest/expect-expect": "off", // Not working for some tests
+
+    // General rules
+    "jest/no-focused-tests": "error",
+    "jest/no-identical-title": "error",
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          {
+            "name": "typeorm",
+            "importNames": ["BaseEntity", "IsEmail"],
+            "message": "Use Linear specific implementations instead (ClientEntity, BackendEntity, IsEmail)"
+          },
+          {
+            "name": "typeorm",
+            "importNames": [
+              "AfterInsert",
+              "AfterRemove",
+              "AfterSoftRemove",
+              "AfterUpdate",
+              "BeforeInsert",
+              "BeforeRecover",
+              "BeforeRemove",
+              "BeforeSoftRemove",
+              "BeforeUpdate",
+              "ManyToOne",
+              "OneToOne"
+            ],
+            "message": "Use Linear specific implementations instead (beforeInsert, beforeUpdate, etc.)"
+          },
+          {
+            "name": "type-graphql",
+            "importNames": ["Mutation", "Query"],
+            "message": "Please use @AuthorizedMutation or @AuthorizedQuery instead (refer to resolvers/Decorators.ts)"
+          },
+          {
+            "name": "node-fetch",
+            "importNames": ["fetch", "default"],
+            "message": "Use `fetch` from ~/utils/fetch instead"
+          },
+          { "name": "jsonwebtoken", "message": "Use ~/utils/jsonwebtoken instead" }
+        ],
+        "patterns": [
+          { "group": ["^[\\./]+/common/"] },
+          { "group": ["@linear/*/src/*"] },
+          {
+            "group": ["~/services/auth/*", "!~/services/auth/resolverTypes/*"],
+            "message": "Auth service: Importing from auth service not allowed"
+          }
+        ]
+      }
+    ]
+  },
+  "overrides": [
+    // TODO: lots of duplication here, could we have some templating or should we
+    // add a unit test to ensure this doesn't get out of sync.
+    {
+      "files": ["src/temporal/workflows/**/*Workflow.{ts,tsx}"],
+      "rules": {
+        "no-restricted-imports": [
+          // FIXME: do this extend from the base config, in that case we should not duplicate rules here?
+          "error",
+          {
+            "paths": [
+              {
+                "name": "typeorm",
+                "importNames": ["BaseEntity", "IsEmail"],
+                "message": "Use Linear specific implementations instead (ClientEntity, BackendEntity, IsEmail)"
+              },
+              {
+                "name": "typeorm",
+                "importNames": [
+                  "AfterInsert",
+                  "AfterRemove",
+                  "AfterSoftRemove",
+                  "AfterUpdate",
+                  "BeforeInsert",
+                  "BeforeRecover",
+                  "BeforeRemove",
+                  "BeforeSoftRemove",
+                  "BeforeUpdate",
+                  "ManyToOne",
+                  "OneToOne"
+                ],
+                "message": "Use Linear specific implementations instead (beforeInsert, beforeUpdate, etc.)"
+              },
+              {
+                "name": "type-graphql",
+                "importNames": ["Mutation", "Query"],
+                "message": "Please use @AuthorizedMutation or @AuthorizedQuery instead (refer to resolvers/Decorators.ts)"
+              },
+              {
+                "name": "node-fetch",
+                "importNames": ["fetch", "default"],
+                "message": "Use `fetch` from ~/utils/fetch instead"
+              },
+              { "name": "jsonwebtoken", "message": "Use ~/utils/jsonwebtoken instead" },
+              {
+                "name": "~/logging/Logger",
+                "importNames": ["Logger"],
+                "message": "Use this.logger instead of importing Logger directly"
+              }
+            ],
+            "patterns": [
+              { "group": ["^[\\./]+/common/*"] },
+              { "group": ["@linear/*/src/*"] },
+              {
+                "group": ["~/services/auth/*", "!~/services/auth/helpers", "!~/services/auth/resolverTypes"],
+                "message": "Auth service: Importing from auth service not allowed"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/migrations/**/*.{ts,tsx}"],
+      "rules": {
+        "typescript/no-explicit-any": "off"
+      }
+    },
+    {
+      "files": ["src/jest/**/*.*", "tools/**"],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
+    },
+    {
+      "files": ["src/services/auth/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "typeorm",
+                "importNames": ["BaseEntity", "IsEmail"],
+                "message": "Use Linear specific implementations instead (ClientEntity, BackendEntity, IsEmail)"
+              },
+              {
+                "name": "typeorm",
+                "importNames": [
+                  "AfterInsert",
+                  "AfterRemove",
+                  "AfterSoftRemove",
+                  "AfterUpdate",
+                  "BeforeInsert",
+                  "BeforeRecover",
+                  "BeforeRemove",
+                  "BeforeSoftRemove",
+                  "BeforeUpdate"
+                ],
+                "message": "Use Linear specific implementations instead (beforeInsert, beforeUpdate, etc.)"
+              },
+              {
+                "name": "type-graphql",
+                "importNames": ["Mutation", "Query"],
+                "message": "Please use @AuthorizedMutation or @AuthorizedQuery instead (refer to resolvers/Decorators.ts)"
+              },
+              {
+                "name": "node-fetch",
+                "importNames": ["fetch", "default"],
+                "message": "Use `fetch` from ~/utils/fetch instead"
+              },
+              { "name": "jsonwebtoken", "message": "Use ~/utils/jsonwebtoken instead" },
+              {
+                "name": "~/auth/Context",
+                "importNames": [
+                  "UserContext",
+                  "withUserContext",
+                  "withNewTxUserContext",
+                  "withTxUserContext",
+                  "OrganizationContext",
+                  "withOrganizationContext",
+                  "withNewTxOrganizationContext",
+                  "withTxOrganizationContext"
+                ],
+                "message": "Usage of `UserContext` is not allowed within the auth service"
+              },
+              {
+                "name": "~/resolvers/decorators/Decorators",
+                "importNames": ["AuthenticatedQuery", "AuthenticatedMutation"],
+                "message": "Usage of `AuthenticatedQuery` and `AuthenticatedMutation` is not allowed within the auth service"
+              }
+            ],
+            "patterns": [
+              { "group": ["^[\\./]+/common/("] },
+              { "group": ["@linear/*/src/*"] },
+              {
+                "group": ["~/entity/*"],
+                "message": "Auth service: Only authentication specific entities can be used within the auth service"
+              },
+              {
+                "group": ["~/filter/*"],
+                "message": "Auth service: Only authentication specific filters can be used within the auth service"
+              },
+              {
+                "group": ["~/resolvers/*", "!~/resolvers/decorators/*", "!~/resolvers/validators/*"],
+                "message": "Auth service: Only authentication specific resolvers can be used within the auth service"
+              },
+              {
+                "group": ["~/routes/*", "!~/routes/base/*"],
+                "message": "Auth service: Only authentication specific routes can be used within the auth service"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/**/*.{test,bench}.{ts,tsx}"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "typeorm",
+                "importNames": ["BaseEntity", "IsEmail"],
+                "message": "Use Linear specific implementations instead (ClientEntity, BackendEntity, IsEmail)"
+              },
+              {
+                "name": "typeorm",
+                "importNames": [
+                  "AfterInsert",
+                  "AfterRemove",
+                  "AfterSoftRemove",
+                  "AfterUpdate",
+                  "BeforeInsert",
+                  "BeforeRecover",
+                  "BeforeRemove",
+                  "BeforeSoftRemove",
+                  "BeforeUpdate",
+                  "ManyToOne",
+                  "OneToOne"
+                ],
+                "message": "Use Linear specific implementations instead (beforeInsert, beforeUpdate, etc.)"
+              },
+              {
+                "name": "type-graphql",
+                "importNames": ["Mutation", "Query"],
+                "message": "Please use @AuthorizedMutation or @AuthorizedQuery instead (refer to resolvers/Decorators.ts)"
+              },
+              {
+                "name": "node-fetch",
+                "importNames": ["fetch", "default"],
+                "message": "Use `fetch` from ~/utils/fetch instead"
+              },
+              { "name": "jsonwebtoken", "message": "Use ~/utils/jsonwebtoken instead" }
+            ],
+            "patterns": [{ "group": ["^[\\./]+/common/*"] }, { "group": ["@linear/*/src/*"] }]
+          }
+        ]
+      }
+    }
+  ]
+}
