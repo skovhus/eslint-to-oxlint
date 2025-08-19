@@ -47,7 +47,7 @@ export class TempTestDirectory {
    */
   runInitScript(): { success: boolean; error?: string } {
     const initPath = path.resolve(__dirname, "..", "src", "init.ts");
-    execSync(`npx tsx "${initPath}"`, {
+    execSync(`npx tsx "${initPath}" ${this.path}`, {
       cwd: this.path,
       stdio: "pipe",
       env: {

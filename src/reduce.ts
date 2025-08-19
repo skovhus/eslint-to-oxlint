@@ -1,7 +1,7 @@
 /* eslint-disable no-console, @typescript-eslint/no-var-requires, @typescript-eslint/no-shadow, @typescript-eslint/no-explicit-any */
 
 /**
- * Function to analyze oxlintrc and eslintrc files in a directory, 
+ * Function to analyze oxlintrc and eslintrc files in a directory,
  * and return a structure of rules to remove from eslintrc (as they are covered by oxlintrc).
  */
 
@@ -35,11 +35,15 @@ export interface ReduceResult {
  */
 function loadOxlintConfigViaCommand(oxlintConfigPath: string): ESLintRule[] {
   try {
-    const result = execSync(`pnpm oxlint --print-config --config "${oxlintConfigPath}"`, {
-      encoding: "utf8",
-      cwd: process.cwd(),
-      stdio: ["pipe", "pipe", "pipe"],
-    });
+    const absoluteConfigPath = path.resolve(oxlintConfigPath);
+    const result = execSync(
+      `pnpm oxlint --print-config --config "${absoluteConfigPath}"`,
+      {
+        encoding: "utf8",
+        cwd: path.dirname(absoluteConfigPath),
+        stdio: ["pipe", "pipe", "pipe"],
+      }
+    );
 
     const config = JSON.parse(result);
     const oxlintRules: ESLintRule[] = [];
@@ -64,12 +68,14 @@ function loadOxlintConfigViaCommand(oxlintConfigPath: string): ESLintRule[] {
 
     return oxlintRules;
   } catch (error) {
-    console.error(`Error loading oxlint config via command for ${oxlintConfigPath}:`, error);
+    console.error(
+      `Error loading oxlint config via command for ${oxlintConfigPath}:`,
+      error
+    );
     // Fallback to the original method
     return loadOxlintConfig(oxlintConfigPath).oxlintRules;
   }
 }
-
 
 /**
  * Extract only the rules that are directly defined in the raw config file (not inherited)
@@ -115,9 +121,11 @@ function analyzeConfigPair(
 ): ReduceResult {
   // Load eslint configuration
   const { eslintRules, rawConfig } = loadESLintConfig(eslintConfigPath);
-  
+
   // Get only directly defined rules (not inherited)
-  const directEslintRules = rawConfig ? getDirectlyDefinedRules(rawConfig, eslintRules) : eslintRules;
+  const directEslintRules = rawConfig
+    ? getDirectlyDefinedRules(rawConfig, eslintRules)
+    : eslintRules;
 
   // Load oxlint configuration using --print-config command
   const oxlintRules = loadOxlintConfigViaCommand(oxlintConfigPath);
@@ -147,7 +155,10 @@ function analyzeConfigPair(
       // Rule is removable if both ESLint and oxlint have it enabled (not "off")
       // We ignore severity differences since the goal is to avoid duplicate enforcement
       // Convert rule name back to eslint format for removal suggestions
-      const eslintRuleName = eslintRule.name.replace(/^typescript\//, "@typescript-eslint/");
+      const eslintRuleName = eslintRule.name.replace(
+        /^typescript\//,
+        "@typescript-eslint/"
+      );
       rulesToRemove.push(eslintRuleName);
     }
   }
@@ -167,12 +178,14 @@ function analyzeConfigPair(
  * Main function to analyze oxlintrc and eslintrc files in a directory
  * and return rules to remove from eslintrc (as they are covered by oxlintrc)
  */
-export async function analyzeDirectory(directoryPath: string = process.cwd()): Promise<ReduceResult[]> {
+export async function analyzeDirectory(
+  directoryPath: string = process.cwd()
+): Promise<ReduceResult[]> {
   const results: ReduceResult[] = [];
 
   // Find all eslint configs in the directory
   const eslintConfigs = await findESLintConfigs(directoryPath);
-  
+
   // Filter to only those with meaningful rules
   const configsWithRules = eslintConfigs.filter(hasRulesOrOverrides);
 
@@ -182,7 +195,7 @@ export async function analyzeDirectory(directoryPath: string = process.cwd()): P
 
     // Skip if no corresponding oxlint config exists
     if (!fs.existsSync(oxlintConfigPath)) {
-      console.log(`⚠️ No oxlint config found for ${eslintConfigPath}`);
+      console.log(`No oxlint config found for ${eslintConfigPath}`);
       continue;
     }
 
@@ -203,7 +216,7 @@ export async function analyzeDirectory(directoryPath: string = process.cwd()): P
  */
 export function generateReport(results: ReduceResult[]): string {
   let report = "# ESLint to Oxlint Reduction Analysis\n\n";
-  
+
   if (results.length === 0) {
     report += "No configurations analyzed.\n";
     return report;
@@ -211,7 +224,10 @@ export function generateReport(results: ReduceResult[]): string {
 
   // Summary
   const totalConfigs = results.length;
-  const totalRulesToRemove = results.reduce((sum, r) => sum + r.summary.toRemove, 0);
+  const totalRulesToRemove = results.reduce(
+    (sum, r) => sum + r.summary.toRemove,
+    0
+  );
 
   report += `## Summary\n\n`;
   report += `- **Configurations analyzed**: ${totalConfigs}\n`;
@@ -219,12 +235,18 @@ export function generateReport(results: ReduceResult[]): string {
 
   // Per-config details
   for (const result of results) {
-    const relativeEslintPath = path.relative(process.cwd(), result.eslintConfigPath);
-    const relativeOxlintPath = path.relative(process.cwd(), result.oxlintConfigPath);
-    
+    const relativeEslintPath = path.relative(
+      process.cwd(),
+      result.eslintConfigPath
+    );
+    const relativeOxlintPath = path.relative(
+      process.cwd(),
+      result.oxlintConfigPath
+    );
+
     report += `## ${relativeEslintPath}\n\n`;
     report += `**Oxlint config**: ${relativeOxlintPath}\n\n`;
-    
+
     if (result.summary.toRemove > 0) {
       report += `### Rules to Remove (${result.summary.toRemove})\n\n`;
       report += `The following rules can be safely removed from ESLint as they are covered by Oxlint.\n\n`;
@@ -232,11 +254,11 @@ export function generateReport(results: ReduceResult[]): string {
       report += `\`\`\`javascript\n`;
       report += `{\n`;
       report += `  rules: {\n`;
-      
+
       for (const ruleName of result.rulesToRemove.sort()) {
         report += `    "${ruleName}": "off",\n`;
       }
-      
+
       report += `  }\n`;
       report += `}\n`;
       report += `\`\`\`\n\n`;
@@ -247,4 +269,16 @@ export function generateReport(results: ReduceResult[]): string {
   }
 
   return report;
+}
+
+// Run the script
+if (require.main === module) {
+  const targetPath = process.argv[2] || process.cwd();
+
+  async function run() {
+    const report = generateReport(await analyzeDirectory(targetPath));
+    console.log(report);
+  }
+
+  run().catch(console.error);
 }

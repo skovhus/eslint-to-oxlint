@@ -600,7 +600,7 @@ function collectAnalysisReport({
 /**
  * Generate a consolidated markdown report file with duplicate and conflict rules from all configs
  */
-function generateConsolidatedReport(reportPath: string): void {
+function generateConsolidatedReport(reportPath: string, baseDirectory: string): void {
   if (allReports.length === 0) {
     return;
   }
@@ -629,7 +629,7 @@ function generateConsolidatedReport(reportPath: string): void {
   content += `|---------------|----------------|-------------------|---------------|\n`;
 
   for (const report of allReports) {
-    const relativeConfigPath = path.relative(process.cwd(), report.configPath);
+    const relativeConfigPath = path.relative(baseDirectory, report.configPath);
     const totalConfigIssues =
       report.duplicates.length + report.conflicts.length;
     content += `| \`${relativeConfigPath}\` | ${report.duplicates.length} | ${report.conflicts.length} | ${totalConfigIssues} |\n`;
@@ -638,7 +638,7 @@ function generateConsolidatedReport(reportPath: string): void {
 
   // Per-config sections
   for (const report of allReports) {
-    const relativeConfigPath = path.relative(process.cwd(), report.configPath);
+    const relativeConfigPath = path.relative(baseDirectory, report.configPath);
     content += `## ${relativeConfigPath}\n\n`;
 
     if (report.duplicates.length > 0) {
@@ -860,11 +860,11 @@ async function analyzeDuplicates(eslintConfigPath: string): Promise<void> {
 /**
  * Main execution function
  */
-async function main(): Promise<void> {
+async function main(directoryPath: string = process.cwd()): Promise<void> {
   console.log("🔍 Finding all ESLint configuration files...\n");
 
   // Find all ESLint configs
-  const allConfigs = await findESLintConfigs(process.cwd());
+  const allConfigs = await findESLintConfigs(directoryPath);
   console.log(`Found ${allConfigs.length} ESLint config files`);
 
   // Filter to only those with rules/overrides
@@ -921,8 +921,8 @@ async function main(): Promise<void> {
 
   // Generate consolidated report
   if (allReports.length > 0) {
-    const reportPath = path.join(process.cwd(), "eslint-8-to-oxlint-report.md");
-    generateConsolidatedReport(reportPath);
+    const reportPath = path.join(directoryPath, "eslint-8-to-oxlint-report.md");
+    generateConsolidatedReport(reportPath, directoryPath);
     console.log(
       `\n📋 ESLint to Oxlint migration report written to: ${reportPath}`
     );
@@ -943,5 +943,6 @@ async function main(): Promise<void> {
 
 // Run the script
 if (require.main === module) {
-  main().catch(console.error);
+  const targetPath = process.argv[2] || process.cwd();
+  main(targetPath).catch(console.error);
 }
