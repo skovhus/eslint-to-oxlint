@@ -136,16 +136,19 @@ describe("reduce functionality", () => {
                 "no-eval",
                 "no-constant-condition",
                 "@typescript-eslint/array-type",
+                "@typescript-eslint/await-thenable",
                 "@typescript-eslint/no-explicit-any",
+                "@typescript-eslint/no-floating-promises",
                 "@typescript-eslint/no-import-type-side-effects",
                 "@typescript-eslint/consistent-type-imports",
                 "@typescript-eslint/no-misused-new",
+                "@typescript-eslint/restrict-template-expressions",
                 "@typescript-eslint/no-duplicate-enum-values",
                 "react/jsx-no-target-blank",
               ],
               "summary": {
-                "toRemove": 19,
-                "totalEslintRules": 85,
+                "toRemove": 22,
+                "totalEslintRules": 88,
               },
             },
             {
@@ -189,13 +192,13 @@ describe("reduce functionality", () => {
           ## Summary
 
           - **Configurations analyzed**: 3
-          - **Rules recommended for removal**: 26
+          - **Rules recommended for removal**: 29
 
           ## tests/fixtures/reduce/.eslintrc.js
 
           **Oxlint config**: tests/fixtures/reduce/.oxlintrc.json
 
-          ### Rules to Remove (19)
+          ### Rules to Remove (22)
 
           The following rules can be safely removed from ESLint as they are covered by Oxlint.
 
@@ -205,11 +208,14 @@ describe("reduce functionality", () => {
           {
             rules: {
               "@typescript-eslint/array-type": "off",
+              "@typescript-eslint/await-thenable": "off",
               "@typescript-eslint/consistent-type-imports": "off",
               "@typescript-eslint/no-duplicate-enum-values": "off",
               "@typescript-eslint/no-explicit-any": "off",
+              "@typescript-eslint/no-floating-promises": "off",
               "@typescript-eslint/no-import-type-side-effects": "off",
               "@typescript-eslint/no-misused-new": "off",
+              "@typescript-eslint/restrict-template-expressions": "off",
               "curly": "off",
               "default-case": "off",
               "eqeqeq": "off",

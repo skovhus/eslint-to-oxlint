@@ -7,16 +7,14 @@
 
 import * as fs from "fs";
 import * as path from "path";
-import { execSync } from "child_process";
 import {
   findESLintConfigs,
   hasRulesOrOverrides,
   loadESLintConfig,
-  loadOxlintConfig,
   ESLintRule,
   EslintConfig,
-  isSupportedByOxlint,
-  normalizeSeverity,
+  OxlintRulesRegistry,
+  loadOxlintConfigViaCommand,
 } from "./utils/config-parser";
 
 export interface ReduceResult {
@@ -27,54 +25,6 @@ export interface ReduceResult {
     totalEslintRules: number;
     toRemove: number;
   };
-}
-
-/**
- * Load oxlint configuration using the --print-config command
- * This gives us the actual resolved configuration that oxlint would use
- */
-function loadOxlintConfigViaCommand(oxlintConfigPath: string): ESLintRule[] {
-  try {
-    const absoluteConfigPath = path.resolve(oxlintConfigPath);
-    const result = execSync(
-      `pnpm oxlint --print-config --config "${absoluteConfigPath}"`,
-      {
-        encoding: "utf8",
-        cwd: path.dirname(absoluteConfigPath),
-        stdio: ["pipe", "pipe", "pipe"],
-      }
-    );
-
-    const config = JSON.parse(result);
-    const oxlintRules: ESLintRule[] = [];
-
-    if (config.rules && typeof config.rules === "object") {
-      for (const [ruleName, ruleValue] of Object.entries(config.rules)) {
-        if (typeof ruleValue === "string") {
-          oxlintRules.push({
-            name: ruleName,
-            severity: normalizeSeverity(ruleValue),
-          });
-        } else if (Array.isArray(ruleValue)) {
-          const [severity, ...config] = ruleValue;
-          oxlintRules.push({
-            name: ruleName,
-            severity: normalizeSeverity(severity),
-            ...(config.length > 0 ? { config } : {}),
-          });
-        }
-      }
-    }
-
-    return oxlintRules;
-  } catch (error) {
-    console.error(
-      `Error loading oxlint config via command for ${oxlintConfigPath}:`,
-      error
-    );
-    // Fallback to the original method
-    return loadOxlintConfig(oxlintConfigPath).oxlintRules;
-  }
 }
 
 /**
@@ -117,7 +67,8 @@ function getDirectlyDefinedRules(
  */
 function analyzeConfigPair(
   eslintConfigPath: string,
-  oxlintConfigPath: string
+  oxlintConfigPath: string,
+  ruleRegistry: OxlintRulesRegistry
 ): ReduceResult {
   // Load eslint configuration
   const { eslintRules, rawConfig } = loadESLintConfig(eslintConfigPath);
@@ -146,7 +97,7 @@ function analyzeConfigPair(
     }
 
     // Check if rule is supported by oxlint
-    if (!isSupportedByOxlint(eslintRule.name)) {
+    if (!ruleRegistry.isSupportedByOxlint(eslintRule.name)) {
       continue;
     }
 
@@ -181,6 +132,8 @@ function analyzeConfigPair(
 export async function analyzeDirectory(
   directoryPath: string = process.cwd()
 ): Promise<ReduceResult[]> {
+  const ruleRegistry = OxlintRulesRegistry.load();
+
   const results: ReduceResult[] = [];
 
   // Find all eslint configs in the directory
@@ -199,13 +152,12 @@ export async function analyzeDirectory(
       continue;
     }
 
-    try {
-      const result = analyzeConfigPair(eslintConfigPath, oxlintConfigPath);
-      results.push(result);
-    } catch (error) {
-      console.error(`Error analyzing ${eslintConfigPath}:`, error);
-      // Continue with other configs instead of failing completely
-    }
+    const result = analyzeConfigPair(
+      eslintConfigPath,
+      oxlintConfigPath,
+      ruleRegistry
+    );
+    results.push(result);
   }
 
   return results;

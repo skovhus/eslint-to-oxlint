@@ -5,7 +5,6 @@ import { execSync } from "child_process";
 
 export interface TestResult {
   directorySnapshot: string;
-  scriptResult: { success: boolean; error?: string };
 }
 
 export class TempTestDirectory {
@@ -45,7 +44,7 @@ export class TempTestDirectory {
   /**
    * Run the init.ts script in the temp directory
    */
-  runInitScript(): { success: boolean; error?: string } {
+  runInitScript() {
     const initPath = path.resolve(__dirname, "..", "src", "init.ts");
     execSync(`npx tsx "${initPath}" ${this.path}`, {
       cwd: this.path,
@@ -56,16 +55,14 @@ export class TempTestDirectory {
         ESLINT_USE_FLAT_CONFIG: "false", // Enable legacy .eslintrc.js support in ESLint v9
       },
     });
-    return { success: true };
   }
 
   /**
    * Read the results of running the init script
    */
-  readResults(scriptResult: { success: boolean; error?: string }): TestResult {
+  readResults(): TestResult {
     return {
       directorySnapshot: this.generateDirectorySnapshot(),
-      scriptResult,
     };
   }
 
@@ -111,12 +108,8 @@ export class TempTestDirectory {
 
           // Normalize JSON formatting for consistent snapshots
           if (entry.endsWith(".json")) {
-            try {
-              const jsonObj = JSON.parse(content);
-              content = JSON.stringify(jsonObj, null, 2);
-            } catch (e) {
-              // If not valid JSON, keep original content
-            }
+            const jsonObj = JSON.parse(content);
+            content = JSON.stringify(jsonObj, null, 2);
           }
 
           // Normalize timestamps in report files for consistent snapshots
@@ -129,9 +122,9 @@ export class TempTestDirectory {
 
           const contentLines = content.split("\n");
           for (const line of contentLines) {
-            snapshot.push(`${indent}     ${line}`);
+            snapshot.push(`${indent}${line}`);
           }
-          snapshot.push(`${indent}     `);
+          snapshot.push(`${indent}`);
         } else {
           // For unchanged files, just note that they weren't modified
           snapshot.push(`${indent}  └─ No content changes`);
@@ -184,8 +177,8 @@ export function runTestScenario(fixturesSubdir: string = "init"): TestResult {
   const testDir = new TempTestDirectory(fixturesSubdir);
   try {
     testDir.copyFixtures();
-    const scriptResult = testDir.runInitScript();
-    return testDir.readResults(scriptResult);
+    testDir.runInitScript();
+    return testDir.readResults();
   } finally {
     testDir.cleanup();
   }

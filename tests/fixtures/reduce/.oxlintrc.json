@@ -31,6 +31,10 @@
     "require-property-type": "off", // Seems like a weird default rule, type system already has this
     "promise/valid-params": "off", // Catch doesn't need a function
 
+
+    // Type aware rules (that we used to have in ESLint)
+    "typescript/no-floating-promises": "warn",
+
     // General rules
     "curly": "error",
     "default-case": "error",

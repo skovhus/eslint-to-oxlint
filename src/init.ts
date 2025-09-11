@@ -14,15 +14,13 @@ import {
   parseRawESLintConfig,
   loadESLintConfig,
   loadOxlintConfig,
-  findSupportedRules,
-  isSupportedByOxlint,
   type ESLintRule,
   type EslintConfig,
   type EslintOverride,
   type OxlintConfig,
   type ConfigRule,
   OXC_DEFAULT_ENABLED_PLUGINS,
-  allDefaultEnabledOxlintRules,
+  OxlintRulesRegistry,
 } from "./utils/config-parser";
 
 /**
@@ -91,6 +89,7 @@ function generateSuggestedConfig(props: {
   parentOxlintConfig?: OxlintConfig;
   parentConfigPath?: string;
   currentConfigPath: string;
+  oxlintRulesRegistry: OxlintRulesRegistry;
 }): {
   suggestedConfig: OxlintConfig;
   groupedRules: { defaultDisabled: ESLintRule[]; otherRules: ESLintRule[] };
@@ -102,6 +101,7 @@ function generateSuggestedConfig(props: {
     parentOxlintConfig,
     parentConfigPath,
     currentConfigPath,
+    oxlintRulesRegistry,
   } = props;
 
   function getOxPlugin(ruleName: string) {
@@ -181,7 +181,7 @@ function generateSuggestedConfig(props: {
       }
 
       // Check if this rule is enabled by default in oxlint
-      const isDefaultEnabledInOxlint = allDefaultEnabledOxlintRules.includes(
+      const isDefaultEnabledInOxlint = oxlintRulesRegistry.isDefaultEnabled(
         rule.name
       );
 
@@ -237,7 +237,7 @@ function generateSuggestedConfig(props: {
           "typescript/"
         );
 
-        if (isSupportedByOxlint(ruleName)) {
+        if (oxlintRulesRegistry.isSupportedByOxlint(ruleName)) {
           const ruleValue =
             typeof ruleConfig === "string" ? ruleConfig : ruleConfig[0];
 
@@ -335,7 +335,8 @@ function getDirectlyDefinedRules(
  */
 function checkForConflicts(
   eslintRules: ESLintRule[],
-  oxlintRules: ESLintRule[]
+  oxlintRules: ESLintRule[],
+  oxlintRulesRegistry: OxlintRulesRegistry
 ): {
   duplicates: { eslintRule: ESLintRule; oxlintRule: ESLintRule }[];
   conflicts: { eslintRule: ESLintRule; oxlintRule: ESLintRule }[];
@@ -350,7 +351,7 @@ function checkForConflicts(
   }
 
   for (const eslintRule of eslintRules) {
-    if (isSupportedByOxlint(eslintRule.name)) {
+    if (oxlintRulesRegistry.isSupportedByOxlint(eslintRule.name)) {
       const oxlintRule = oxlintRuleMap.get(eslintRule.name);
 
       if (eslintRule.severity === "off") {
@@ -600,7 +601,10 @@ function collectAnalysisReport({
 /**
  * Generate a consolidated markdown report file with duplicate and conflict rules from all configs
  */
-function generateConsolidatedReport(reportPath: string, baseDirectory: string): void {
+function generateConsolidatedReport(
+  reportPath: string,
+  baseDirectory: string
+): void {
   if (allReports.length === 0) {
     return;
   }
@@ -701,7 +705,10 @@ function generateConsolidatedReport(reportPath: string, baseDirectory: string): 
 /**
  * Generate oxlint config for a single ESLint config file (first pass - no duplicate detection)
  */
-async function generateOxlintConfig(eslintConfigPath: string): Promise<void> {
+async function generateOxlintConfig(
+  eslintConfigPath: string,
+  oxlintRulesRegistry: OxlintRulesRegistry
+): Promise<void> {
   const configDir = path.dirname(eslintConfigPath);
   const oxlintConfigPath = path.join(configDir, ".oxlintrc.json");
 
@@ -710,8 +717,7 @@ async function generateOxlintConfig(eslintConfigPath: string): Promise<void> {
     loadESLintConfig(eslintConfigPath);
   const relevantEslintRules = eslintRules.filter(
     (rule) =>
-      rule.severity !== "off" ||
-      allDefaultEnabledOxlintRules.includes(rule.name)
+      rule.severity !== "off" || oxlintRulesRegistry.isDefaultEnabled(rule.name)
   );
   const { oxlintConfig: existingOxlintConfig, parentOxlintConfig } =
     loadOxlintConfig(oxlintConfigPath, extendsFrom);
@@ -725,7 +731,8 @@ async function generateOxlintConfig(eslintConfigPath: string): Promise<void> {
   }
 
   // Analyze rule support using all rules (including overrides)
-  const { supported, unsupported } = findSupportedRules(eslintRules);
+  const { supported, unsupported } =
+    oxlintRulesRegistry.findSupportedRules(eslintRules);
 
   // Display enabled ESLint rules (sorted alphabetically) with support indicators
   console.log(
@@ -735,7 +742,9 @@ async function generateOxlintConfig(eslintConfigPath: string): Promise<void> {
     a.name.localeCompare(b.name)
   );
   for (const rule of sortedRules) {
-    const supportIcon = isSupportedByOxlint(rule.name) ? "☑️" : "⚠️";
+    const supportIcon = oxlintRulesRegistry.isSupportedByOxlint(rule.name)
+      ? "☑️"
+      : "⚠️";
     const normalizedName = rule.name.replace(
       /^typescript\//,
       "@typescript-eslint/"
@@ -757,6 +766,7 @@ async function generateOxlintConfig(eslintConfigPath: string): Promise<void> {
     parentOxlintConfig,
     parentConfigPath: extendsFrom,
     currentConfigPath: eslintConfigPath,
+    oxlintRulesRegistry,
   });
 
   // Summary of unsupported rules (only show enabled ones)
@@ -825,7 +835,10 @@ async function generateOxlintConfig(eslintConfigPath: string): Promise<void> {
 /**
  * Analyze duplicates for a single ESLint config file (second pass - after all configs generated)
  */
-async function analyzeDuplicates(eslintConfigPath: string): Promise<void> {
+async function analyzeDuplicates(
+  eslintConfigPath: string,
+  oxlintRulesRegistry: OxlintRulesRegistry
+): Promise<void> {
   const configDir = path.dirname(eslintConfigPath);
   const oxlintConfigPath = path.join(configDir, ".oxlintrc.json");
 
@@ -847,7 +860,8 @@ async function analyzeDuplicates(eslintConfigPath: string): Promise<void> {
   // Check for conflicts and duplicates using only directly defined rules
   const { duplicates, conflicts } = checkForConflicts(
     directlyDefinedRules,
-    finalOxlintRules
+    finalOxlintRules,
+    oxlintRulesRegistry
   );
 
   const totalOverlap = duplicates.length + conflicts.length;
@@ -895,6 +909,8 @@ async function main(directoryPath: string = process.cwd()): Promise<void> {
   const sortedConfigs = sortByDependencies(configsWithRules);
   console.log(`\nProcessing configs in dependency order:\n`);
 
+  const oxlintRulesRegistry = OxlintRulesRegistry.load(directoryPath);
+
   // PASS 1: Generate all oxlint configs first
   console.log(`\n🔧 PASS 1: Generating oxlint configurations...`);
   for (let i = 0; i < sortedConfigs.length; i++) {
@@ -905,14 +921,14 @@ async function main(directoryPath: string = process.cwd()): Promise<void> {
     );
     console.log(`${"=".repeat(80)}`);
 
-    await generateOxlintConfig(eslintConfigPath);
+    await generateOxlintConfig(eslintConfigPath, oxlintRulesRegistry);
   }
 
   // PASS 2: Analyze duplicates after all configs are generated
   console.log(`\n\n🔍 PASS 2: Analyzing duplicate rules...`);
   for (let i = 0; i < sortedConfigs.length; i++) {
     const eslintConfigPath = sortedConfigs[i];
-    await analyzeDuplicates(eslintConfigPath);
+    await analyzeDuplicates(eslintConfigPath, oxlintRulesRegistry);
   }
 
   console.log(`\n${"=".repeat(80)}`);
@@ -944,5 +960,8 @@ async function main(directoryPath: string = process.cwd()): Promise<void> {
 // Run the script
 if (require.main === module) {
   const targetPath = process.argv[2] || process.cwd();
-  main(targetPath).catch(console.error);
+  main(targetPath).catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });
 }

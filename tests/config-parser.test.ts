@@ -7,10 +7,9 @@ import {
   parseRawESLintConfig,
   parseRawOxlintRules,
   loadOxlintConfig,
-  findSupportedRules,
   normalizeSeverity,
-  isSupportedByOxlint,
-  type ESLintRule,
+  OXC_DEFAULT_ENABLED_PLUGINS,
+  OxlintRulesRegistry,
 } from "../src/utils/config-parser";
 
 describe("config-parser", () => {
@@ -54,64 +53,6 @@ describe("config-parser", () => {
         "Unexpected severity: invalid"
       );
       expect(() => normalizeSeverity(null)).toThrow();
-    });
-  });
-
-  describe("isSupportedByOxlint", () => {
-    it("should return true for supported rules", () => {
-      expect(isSupportedByOxlint("no-console")).toBe(true);
-      expect(isSupportedByOxlint("no-unused-vars")).toBe(true);
-      expect(isSupportedByOxlint("no-debugger")).toBe(true);
-    });
-
-    it("should return false for unsupported rules", () => {
-      expect(isSupportedByOxlint("prefer-const")).toBe(false);
-      expect(isSupportedByOxlint("some-unknown-rule")).toBe(false);
-    });
-
-    it("should handle typescript rules", () => {
-      // These should be normalized internally
-      expect(isSupportedByOxlint("typescript/no-unused-vars")).toBe(true);
-    });
-  });
-
-  describe("findSupportedRules", () => {
-    it("should separate supported and unsupported rules", () => {
-      const rules: ESLintRule[] = [
-        { name: "no-console", severity: "warn" },
-        { name: "no-unused-vars", severity: "error" },
-        { name: "no-debugger", severity: "error" },
-        { name: "prefer-const", severity: "error" }, // not supported
-        { name: "some-unknown-rule", severity: "warn" }, // not supported
-      ];
-
-      const { supported, unsupported } = findSupportedRules(rules);
-
-      expect(supported).toHaveLength(3);
-      expect(unsupported).toHaveLength(2);
-
-      const supportedNames = supported.map((r) => r.name);
-      expect(supportedNames).toContain("no-console");
-      expect(supportedNames).toContain("no-unused-vars");
-      expect(supportedNames).toContain("no-debugger");
-
-      const unsupportedNames = unsupported.map((r) => r.name);
-      expect(unsupportedNames).toContain("prefer-const");
-      expect(unsupportedNames).toContain("some-unknown-rule");
-    });
-
-    it("should exclude disabled unsupported rules", () => {
-      const rules: ESLintRule[] = [
-        { name: "no-console", severity: "warn" },
-        { name: "prefer-const", severity: "off" }, // disabled unsupported rule
-        { name: "some-unknown-rule", severity: "error" }, // enabled unsupported rule
-      ];
-
-      const { supported, unsupported } = findSupportedRules(rules);
-
-      expect(supported).toHaveLength(1);
-      expect(unsupported).toHaveLength(1);
-      expect(unsupported[0].name).toBe("some-unknown-rule");
     });
   });
 
@@ -394,6 +335,87 @@ describe("config-parser", () => {
       expect(result.oxlintConfig.rules).toEqual({});
       expect(result.oxlintRules).toHaveLength(0);
       expect(result.parentOxlintConfig).toBeUndefined();
+    });
+  });
+
+  describe("OxlintRulesRegistry", () => {
+    const registry = OxlintRulesRegistry.load(process.cwd());
+    const rules = registry.getAllRules();
+
+    it("should load all oxlint rules with correct structure", () => {
+      expect(Array.isArray(rules)).toBe(true);
+      expect(rules.length).toBeGreaterThan(0);
+    });
+
+    it("should correctly set isDefaultEnabled based on OXC_DEFAULT_ENABLED_PLUGINS", () => {
+      const defaultEnabledRules = rules.filter((rule) => rule.isDefaultEnabled);
+      const nonDefaultRules = rules.filter((rule) => !rule.isDefaultEnabled);
+
+      expect(defaultEnabledRules.length).toBeGreaterThan(0);
+      expect(nonDefaultRules.length).toBeGreaterThan(0);
+
+      // All default enabled rules should have scopes in OXC_DEFAULT_ENABLED_PLUGINS
+      defaultEnabledRules.forEach((rule) => {
+        expect(OXC_DEFAULT_ENABLED_PLUGINS).toContain(rule.scope);
+      });
+
+      // All non-default rules should have scopes NOT in OXC_DEFAULT_ENABLED_PLUGINS
+      nonDefaultRules.forEach((rule) => {
+        expect(OXC_DEFAULT_ENABLED_PLUGINS).not.toContain(rule.scope);
+      });
+    });
+
+    it("should include rules from multiple scopes", () => {
+      const scopes = [...new Set(rules.map((rule) => rule.scope))];
+
+      expect(scopes.length).toBeGreaterThan(3); // Should have multiple scopes
+
+      // Should include some known scopes based on OXC_DEFAULT_ENABLED_PLUGINS
+      expect(scopes).toContain("typescript");
+      expect(scopes).toContain("unicorn");
+      expect(scopes).toContain("oxc");
+    });
+
+    it("should include rules from different categories", () => {
+      const categories = [...new Set(rules.map((rule) => rule.category))];
+
+      expect(categories.length).toBeGreaterThan(1); // Should have multiple categories
+
+      // Should include some known categories
+      const knownCategories = [
+        "correctness",
+        "suspicious",
+        "style",
+        "pedantic",
+        "restriction",
+      ];
+      const hasKnownCategories = knownCategories.some((cat) =>
+        categories.includes(cat)
+      );
+      expect(hasKnownCategories).toBe(true);
+    });
+
+    describe("isSupportedByOxlint", () => {
+      it("should return true for supported rules", () => {
+        expect(registry.isSupportedByOxlint("no-console")).toBe(true);
+        expect(registry.isSupportedByOxlint("no-unused-vars")).toBe(true);
+        expect(registry.isSupportedByOxlint("no-debugger")).toBe(true);
+      });
+
+      it("should return false for unsupported rules", () => {
+        expect(registry.isSupportedByOxlint("prefer-const")).toBe(false);
+        expect(registry.isSupportedByOxlint("some-unknown-rule")).toBe(false);
+      });
+
+      it("should handle typescript rules", () => {
+        // These should be normalized internally
+        expect(registry.isSupportedByOxlint("typescript/no-unused-vars")).toBe(
+          true
+        );
+        expect(
+          registry.isSupportedByOxlint("@typescript-eslint/no-unused-vars")
+        ).toBe(true);
+      });
     });
   });
 });

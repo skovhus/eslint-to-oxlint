@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "vitest run",
+    "test": "vitest",
     "test:watch": "vitest"
   },
   "keywords": [],
@@ -13,7 +13,6 @@
   "packageManager": "pnpm@10.12.2",
   "dependencies": {
     "eslint": "^8.57.1",
-    "eslint-plugin-oxlint": "^1.12.0",
     "jsonc-parser": "^3.3.1"
   },
   "devDependencies": {

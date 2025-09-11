@@ -4,15 +4,9 @@ import * as fs from "fs";
 import * as path from "path";
 import { execSync } from "child_process";
 import * as jsonc from "jsonc-parser";
-import * as ruleByCategory from "eslint-plugin-oxlint/rules-by-category";
 
+// FIXME: should read this from oxc
 export const OXC_DEFAULT_ENABLED_PLUGINS = ["typescript", "unicorn", "oxc"];
-export const allOxlintRules = Object.values(ruleByCategory).flatMap((rules) =>
-  Object.keys(rules).map(normalizeOxlintRuleName)
-);
-export const allDefaultEnabledOxlintRules = Object.keys(
-  ruleByCategory.correctnessRules
-).map(normalizeOxlintRuleName);
 
 export type Severity = "error" | "warn" | "off";
 
@@ -23,6 +17,128 @@ export interface ESLintRule {
 }
 
 export type ConfigRule = Record<string, string | [string, ...unknown[]]>;
+
+export interface OxlintRule {
+  scope: string;
+  name: string;
+  category: string;
+  isDefaultEnabled: boolean;
+}
+
+export class OxlintRulesRegistry {
+  /**
+   * Load all oxlint rules from the command and create registry
+   */
+  public static load(cwd: string): OxlintRulesRegistry {
+    try {
+      const result = execSync("pnpm exec oxlint --rules --format=json", {
+        encoding: "utf8",
+        cwd,
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+
+      const oxlintRules = JSON.parse(result) as {
+        scope: string;
+        value: string;
+        category: string;
+      }[];
+
+      const mappedRules = oxlintRules.map((rule) => ({
+        scope: rule.scope,
+        category: rule.category,
+        name:
+          rule.scope === "eslint" ? rule.value : `${rule.scope}/${rule.value}`,
+        isDefaultEnabled: OXC_DEFAULT_ENABLED_PLUGINS.includes(rule.scope),
+      }));
+
+      const ruleNames = new Set(mappedRules.map((r) => r.name));
+      const defaultEnabledRuleNames = new Set(
+        mappedRules.filter((r) => r.isDefaultEnabled).map((r) => r.name)
+      );
+
+      return new OxlintRulesRegistry(
+        mappedRules,
+        ruleNames,
+        defaultEnabledRuleNames
+      );
+    } catch (error) {
+      throw new Error(`Failed to load oxlint rules: ${error}`);
+    }
+  }
+
+  /**
+   * Check if a rule name is supported by oxlint
+   */
+  public isSupportedByOxlint(ruleName: string): boolean {
+    const normalizedName = normalizeOxlintRuleName(ruleName);
+    const ruleNameWithoutScope = normalizedName.split("/")[1];
+    return (
+      this.ruleNames.has(normalizedName) ||
+      this.ruleNames.has(ruleNameWithoutScope)
+    );
+  }
+
+  public isDefaultEnabled(ruleName: string): boolean {
+    const normalizedName = normalizeOxlintRuleName(ruleName);
+    const ruleNameWithoutScope = normalizedName.split("/")[1];
+    return (
+      this.defaultEnabledRuleNames.has(normalizedName) ||
+      this.defaultEnabledRuleNames.has(ruleNameWithoutScope)
+    );
+  }
+
+  /**
+   * Get all rules (for compatibility and advanced usage)
+   */
+  public getAllRules(): Readonly<OxlintRule>[] {
+    return this.rules;
+  }
+
+  /**
+   * Get all available scopes
+   */
+  public getAllScopes(): string[] {
+    return [...new Set(this.rules.map((rule) => rule.scope))];
+  }
+
+  /**
+   * Get all available categories
+   */
+  public getAllCategories(): string[] {
+    return [...new Set(this.rules.map((rule) => rule.category))];
+  }
+
+  /**
+   * Find ESLint rules that are supported by Oxlint
+   */
+  public findSupportedRules(eslintRules: ESLintRule[]): {
+    supported: ESLintRule[];
+    unsupported: ESLintRule[];
+  } {
+    const supported: ESLintRule[] = [];
+    const unsupported: ESLintRule[] = [];
+
+    for (const rule of eslintRules) {
+      if (this.isSupportedByOxlint(rule.name)) {
+        supported.push(rule);
+      } else {
+        if (rule.severity !== "off") {
+          unsupported.push(rule);
+        }
+      }
+    }
+
+    return { supported, unsupported };
+  }
+
+  // -- Private interface
+
+  private constructor(
+    private rules: OxlintRule[],
+    private ruleNames: Set<string>,
+    private defaultEnabledRuleNames: Set<string>
+  ) {}
+}
 
 export interface EslintConfig {
   plugins: string[];
@@ -43,7 +159,9 @@ export interface OxlintConfig extends EslintConfig {
 }
 
 function normalizeOxlintRuleName(ruleName: string): string {
-  return ruleName.replace(/^@typescript-eslint\//, "typescript/");
+  return ruleName
+    .replace(/^@typescript-eslint\//, "typescript/")
+    .replace(/^eslint\//, "");
 }
 
 export function normalizeSeverity(severity: unknown): "error" | "warn" | "off" {
@@ -76,10 +194,6 @@ export function normalizeSeverity(severity: unknown): "error" | "warn" | "off" {
   }
 
   throw new Error(`Unexpected severity: ${severity}`);
-}
-
-export function isSupportedByOxlint(ruleName: string): boolean {
-  return allOxlintRules.includes(ruleName);
 }
 
 /**
@@ -235,35 +349,11 @@ export function loadESLintConfig(configPath: string): {
   }
 
   const allRules = new Set(Object.keys(eslintResolvedConfig.rules));
-  const customRuleMapping = new Map<string, string>();
-  const rulesToRemove = new Set<string>();
-
-  // First pass: identify typescript rules that have oxlint support
-  for (const ruleName of allRules) {
-    const ruleWithoutPlugin = ruleName.replace(/^@typescript-eslint\//, "");
-    if (
-      ruleName.startsWith("@typescript-eslint/") &&
-      isSupportedByOxlint(ruleWithoutPlugin)
-    ) {
-      customRuleMapping.set(ruleName, ruleWithoutPlugin);
-      // If both the base rule and typescript rule exist, prefer the typescript version
-      if (allRules.has(ruleWithoutPlugin)) {
-        rulesToRemove.add(ruleWithoutPlugin);
-      }
-    }
-  }
-
-  // Remove base rules that have typescript equivalents
-  for (const ruleToRemove of rulesToRemove) {
-    allRules.delete(ruleToRemove);
-  }
 
   for (const eslintRuleName of allRules) {
     const ruleConfig = eslintResolvedConfig.rules[eslintRuleName];
 
-    const name = (
-      customRuleMapping.get(eslintRuleName) || eslintRuleName
-    ).replace(/^@typescript-eslint\//, "typescript/");
+    const name = eslintRuleName.replace(/^@typescript-eslint\//, "typescript/");
 
     if (Array.isArray(ruleConfig)) {
       const config = ruleConfig.slice(1);
@@ -424,24 +514,42 @@ export function loadOxlintConfig(
 }
 
 /**
- * Find ESLint rules that are supported by Oxlint
+ * Load oxlint configuration using the --print-config command
+ * This gives us the actual resolved configuration that oxlint would use
  */
-export function findSupportedRules(eslintRules: ESLintRule[]): {
-  supported: ESLintRule[];
-  unsupported: ESLintRule[];
-} {
-  const supported: ESLintRule[] = [];
-  const unsupported: ESLintRule[] = [];
+export function loadOxlintConfigViaCommand(
+  oxlintConfigPath: string
+): ESLintRule[] {
+  const absoluteConfigPath = path.resolve(oxlintConfigPath);
+  const result = execSync(
+    `pnpm exec oxlint --type-aware --print-config --config "${absoluteConfigPath}"`,
+    {
+      encoding: "utf8",
+      cwd: path.dirname(absoluteConfigPath),
+      stdio: ["pipe", "pipe", "pipe"],
+    }
+  );
 
-  for (const rule of eslintRules) {
-    if (isSupportedByOxlint(rule.name)) {
-      supported.push(rule);
-    } else {
-      if (rule.severity !== "off") {
-        unsupported.push(rule);
+  const config = JSON.parse(result);
+  const oxlintRules: ESLintRule[] = [];
+
+  if (config.rules && typeof config.rules === "object") {
+    for (const [ruleName, ruleValue] of Object.entries(config.rules)) {
+      if (typeof ruleValue === "string") {
+        oxlintRules.push({
+          name: ruleName,
+          severity: normalizeSeverity(ruleValue),
+        });
+      } else if (Array.isArray(ruleValue)) {
+        const [severity, ...config] = ruleValue;
+        oxlintRules.push({
+          name: ruleName,
+          severity: normalizeSeverity(severity),
+          ...(config.length > 0 ? { config } : {}),
+        });
       }
     }
   }
 
-  return { supported, unsupported };
+  return oxlintRules;
 }
