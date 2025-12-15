@@ -27,6 +27,12 @@ export interface ReduceResult {
   };
 }
 
+export interface AnalysisResult {
+  results: ReduceResult[];
+  analyzedOxlintConfigs: string[];
+  eslintConfigsWithoutOxlint: string[];
+}
+
 /**
  * Extract only the rules that are directly defined in the raw config file (not inherited)
  */
@@ -131,10 +137,12 @@ function analyzeConfigPair(
  */
 export async function analyzeDirectory(
   directoryPath: string = process.cwd()
-): Promise<ReduceResult[]> {
+): Promise<AnalysisResult> {
   const ruleRegistry = OxlintRulesRegistry.load();
 
   const results: ReduceResult[] = [];
+  const analyzedOxlintConfigs: string[] = [];
+  const eslintConfigsWithoutOxlint: string[] = [];
 
   // Find all eslint configs in the directory
   const eslintConfigs = await findESLintConfigs(directoryPath);
@@ -146,11 +154,15 @@ export async function analyzeDirectory(
     const configDir = path.dirname(eslintConfigPath);
     const oxlintConfigPath = path.join(configDir, ".oxlintrc.json");
 
-    // Skip if no corresponding oxlint config exists
+    // Track if no corresponding oxlint config exists
     if (!fs.existsSync(oxlintConfigPath)) {
-      console.log(`No oxlint config found for ${eslintConfigPath}`);
+      eslintConfigsWithoutOxlint.push(
+        path.relative(process.cwd(), eslintConfigPath)
+      );
       continue;
     }
+
+    analyzedOxlintConfigs.push(path.relative(process.cwd(), oxlintConfigPath));
 
     const result = analyzeConfigPair(
       eslintConfigPath,
@@ -160,63 +172,39 @@ export async function analyzeDirectory(
     results.push(result);
   }
 
-  return results;
+  return { results, analyzedOxlintConfigs, eslintConfigsWithoutOxlint };
 }
 
 /**
  * Generate a human-readable report from the analysis results
  */
-export function generateReport(results: ReduceResult[]): string {
-  let report = "# ESLint to Oxlint Reduction Analysis\n\n";
+export function generateReport(analysis: AnalysisResult): string {
+  const { results } = analysis;
 
   if (results.length === 0) {
-    report += "No configurations analyzed.\n";
-    return report;
+    return "No configurations analyzed.\n";
   }
 
-  // Summary
-  const totalConfigs = results.length;
+  const resultsWithRules = results.filter((r) => r.summary.toRemove > 0);
   const totalRulesToRemove = results.reduce(
     (sum, r) => sum + r.summary.toRemove,
     0
   );
 
-  report += `## Summary\n\n`;
-  report += `- **Configurations analyzed**: ${totalConfigs}\n`;
-  report += `- **Rules recommended for removal**: ${totalRulesToRemove}\n\n`;
+  if (totalRulesToRemove === 0) {
+    return "✓ No ESLint rules to remove - nothing is duplicated with Oxlint.\n";
+  }
 
-  // Per-config details
-  for (const result of results) {
-    const relativeEslintPath = path.relative(
-      process.cwd(),
-      result.eslintConfigPath
-    );
-    const relativeOxlintPath = path.relative(
-      process.cwd(),
-      result.oxlintConfigPath
-    );
+  let report = `Found ${totalRulesToRemove} ESLint rule(s) to remove across ${resultsWithRules.length} config(s):\n\n`;
 
-    report += `## ${relativeEslintPath}\n\n`;
-    report += `**Oxlint config**: ${relativeOxlintPath}\n\n`;
-
-    if (result.summary.toRemove > 0) {
-      report += `### Rules to Remove (${result.summary.toRemove})\n\n`;
-      report += `The following rules can be safely removed from ESLint as they are covered by Oxlint.\n\n`;
-      report += `Copy-paste this into your ESLint config to disable these rules:\n\n`;
-      report += `\`\`\`javascript\n`;
-      report += `{\n`;
-      report += `  rules: {\n`;
-
-      for (const ruleName of result.rulesToRemove.sort()) {
-        report += `    "${ruleName}": "off",\n`;
-      }
-
-      report += `  }\n`;
-      report += `}\n`;
-      report += `\`\`\`\n\n`;
-    } else {
-      report += `### No Rules to Remove\n\n`;
-      report += `No ESLint rules were found that are covered by Oxlint.\n\n`;
+  for (let i = 0; i < resultsWithRules.length; i++) {
+    const result = resultsWithRules[i];
+    report += `${result.eslintConfigPath}\n`;
+    for (const ruleName of result.rulesToRemove.sort()) {
+      report += `  "${ruleName}": "off",\n`;
+    }
+    if (i < resultsWithRules.length - 1) {
+      report += "\n";
     }
   }
 
@@ -229,7 +217,7 @@ if (require.main === module) {
 
   async function run() {
     const report = generateReport(await analyzeDirectory(targetPath));
-    console.log(report);
+    console.log(report.trimEnd());
   }
 
   run().catch(console.error);

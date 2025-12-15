@@ -1,6 +1,7 @@
 # eslint-to-oxlint
 
-Some hacky vibe-coded tools to help migrate from ESLint (8) to Oxlint.
+Some hacky vibe-coded tools to help migrate from ESLint 8 to Oxlint. You might want to just
+upgrade to ESLint 9+ and explore https://github.com/oxc-project/oxlint-migrate
 
 
 ## Usage
