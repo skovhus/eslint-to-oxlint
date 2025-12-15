@@ -138,7 +138,7 @@ function analyzeConfigPair(
 export async function analyzeDirectory(
   directoryPath: string = process.cwd()
 ): Promise<AnalysisResult> {
-  const ruleRegistry = OxlintRulesRegistry.load();
+  const ruleRegistry = OxlintRulesRegistry.load(directoryPath);
 
   const results: ReduceResult[] = [];
   const analyzedOxlintConfigs: string[] = [];

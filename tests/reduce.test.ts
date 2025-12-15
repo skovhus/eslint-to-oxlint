@@ -3,13 +3,13 @@ import * as path from "path";
 import {
   analyzeDirectory,
   generateReport,
-  type ReduceResult,
+  type AnalysisResult,
 } from "../src/reduce";
 
 describe("reduce functionality", () => {
   describe("simple-reduce fixtures", () => {
     const fixturesPath = path.join(__dirname, "fixtures", "simple-reduce");
-    let results: ReduceResult[];
+    let results: AnalysisResult;
 
     beforeAll(async () => {
       results = await analyzeDirectory(fixturesPath);
@@ -80,7 +80,7 @@ describe("reduce functionality", () => {
 
   describe("comprehensive reduce fixtures", () => {
     const fixturesPath = path.join(__dirname, "fixtures", "reduce");
-    let results: ReduceResult[];
+    let results: AnalysisResult;
 
     beforeAll(async () => {
       results = await analyzeDirectory(fixturesPath);

@@ -20,6 +20,7 @@ describe("init.ts", () => {
           "unicorn"
         ],
         "rules": {
+          "constructor-super": "error",
           "for-direction": "error",
           "getter-return": "error",
           "no-alert": "warn",
@@ -52,6 +53,7 @@ describe("init.ts", () => {
           "no-invalid-regexp": "error",
           "no-irregular-whitespace": "error",
           "no-loss-of-precision": "error",
+          "no-misleading-character-class": "error",
           "no-new-native-nonconstructor": "error",
           "no-nonoctal-decimal-escape": "error",
           "no-obj-calls": "error",
