@@ -33,6 +33,10 @@ export interface AnalysisResult {
   eslintConfigsWithoutOxlint: string[];
 }
 
+export interface AnalyzeOptions {
+  typeAware?: boolean;
+}
+
 /**
  * Extract only the rules that are directly defined in the raw config file (not inherited)
  */
@@ -74,8 +78,11 @@ function getDirectlyDefinedRules(
 function analyzeConfigPair(
   eslintConfigPath: string,
   oxlintConfigPath: string,
-  ruleRegistry: OxlintRulesRegistry
+  ruleRegistry: OxlintRulesRegistry,
+  options: AnalyzeOptions = {}
 ): ReduceResult {
+  const { typeAware = true } = options;
+
   // Load eslint configuration
   const { eslintRules, rawConfig } = loadESLintConfig(eslintConfigPath);
 
@@ -104,6 +111,11 @@ function analyzeConfigPair(
 
     // Check if rule is supported by oxlint
     if (!ruleRegistry.isSupportedByOxlint(eslintRule.name)) {
+      continue;
+    }
+
+    // Skip type-aware rules when not running with --type-aware
+    if (!typeAware && ruleRegistry.isTypeAware(eslintRule.name)) {
       continue;
     }
 
@@ -136,7 +148,8 @@ function analyzeConfigPair(
  * and return rules to remove from eslintrc (as they are covered by oxlintrc)
  */
 export async function analyzeDirectory(
-  directoryPath: string = process.cwd()
+  directoryPath: string = process.cwd(),
+  options: AnalyzeOptions = {}
 ): Promise<AnalysisResult> {
   const ruleRegistry = OxlintRulesRegistry.load(directoryPath);
 
@@ -167,7 +180,8 @@ export async function analyzeDirectory(
     const result = analyzeConfigPair(
       eslintConfigPath,
       oxlintConfigPath,
-      ruleRegistry
+      ruleRegistry,
+      options
     );
     results.push(result);
   }
@@ -213,10 +227,35 @@ export function generateReport(analysis: AnalysisResult): string {
 
 // Run the script
 if (require.main === module) {
-  const targetPath = process.argv[2] || process.cwd();
+  // Parse arguments
+  const args = process.argv.slice(2);
+  let targetPath = process.cwd();
+  let typeAware: boolean | undefined;
+
+  for (const arg of args) {
+    if (arg === "--type-aware") {
+      typeAware = true;
+    } else if (arg.startsWith("--type-aware=")) {
+      typeAware = arg.split("=")[1] === "true";
+    } else if (!arg.startsWith("--")) {
+      targetPath = arg;
+    }
+  }
+
+  if (typeAware === undefined) {
+    console.error(
+      "Error: --type-aware flag is required.\n" +
+        "Usage: npx tsx src/reduce.ts <path> --type-aware\n" +
+        "       npx tsx src/reduce.ts <path> --type-aware=true\n" +
+        "       npx tsx src/reduce.ts <path> --type-aware=false"
+    );
+    process.exit(1);
+  }
 
   async function run() {
-    const report = generateReport(await analyzeDirectory(targetPath));
+    const report = generateReport(
+      await analyzeDirectory(targetPath, { typeAware: typeAware! })
+    );
     console.log(report.trimEnd());
   }
 

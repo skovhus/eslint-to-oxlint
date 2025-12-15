@@ -8,7 +8,6 @@ const typescriptRules = {
       default: "array",
     },
   ],
-  "@typescript-eslint/await-thenable": "warn",
   "@typescript-eslint/dot-notation": "warn",
   "@typescript-eslint/explicit-member-accessibility": [
     "warn",

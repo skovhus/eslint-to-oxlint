@@ -9,13 +9,14 @@ import {
 describe("reduce functionality", () => {
   describe("simple-reduce fixtures", () => {
     const fixturesPath = path.join(__dirname, "fixtures", "simple-reduce");
-    let results: AnalysisResult;
 
-    beforeAll(async () => {
-      results = await analyzeDirectory(fixturesPath);
-    });
+    describe("with typeAware: true", () => {
+      let results: AnalysisResult;
 
-    describe("analyzeDirectory", () => {
+      beforeAll(async () => {
+        results = await analyzeDirectory(fixturesPath, { typeAware: true });
+      });
+
       it("should find common rules that can be removed", () => {
         expect(results).toMatchInlineSnapshot(`
           {
@@ -55,9 +56,7 @@ describe("reduce functionality", () => {
           }
         `);
       });
-    });
 
-    describe("generateReport", () => {
       it("should generate a report", () => {
         const report = generateReport(results);
         expect(report).toMatchInlineSnapshot(`
@@ -76,18 +75,38 @@ describe("reduce functionality", () => {
         `);
       });
     });
+
+    describe("with typeAware: false", () => {
+      let results: AnalysisResult;
+
+      beforeAll(async () => {
+        results = await analyzeDirectory(fixturesPath, { typeAware: false });
+      });
+
+      it("should find the same rules (no type-aware rules in simple fixtures)", () => {
+        // Simple fixtures don't have type-aware rules, so results should be the same
+        expect(results.results[0].rulesToRemove).toEqual([
+          "no-unused-vars",
+          "no-console",
+          "no-empty",
+          "curly",
+          "default-case",
+        ]);
+      });
+    });
   });
 
   describe("comprehensive reduce fixtures", () => {
     const fixturesPath = path.join(__dirname, "fixtures", "reduce");
-    let results: AnalysisResult;
 
-    beforeAll(async () => {
-      results = await analyzeDirectory(fixturesPath);
-    });
+    describe("with typeAware: true", () => {
+      let results: AnalysisResult;
 
-    describe("analyzeDirectory", () => {
-      it("should find rules that can be removed", () => {
+      beforeAll(async () => {
+        results = await analyzeDirectory(fixturesPath, { typeAware: true });
+      });
+
+      it("should find rules that can be removed including type-aware rules", () => {
         expect(results).toMatchInlineSnapshot(`
           {
             "analyzedOxlintConfigs": [
@@ -114,7 +133,6 @@ describe("reduce functionality", () => {
                   "no-eval",
                   "no-constant-condition",
                   "@typescript-eslint/array-type",
-                  "@typescript-eslint/await-thenable",
                   "@typescript-eslint/no-explicit-any",
                   "@typescript-eslint/no-floating-promises",
                   "@typescript-eslint/no-import-type-side-effects",
@@ -125,8 +143,8 @@ describe("reduce functionality", () => {
                   "react/jsx-no-target-blank",
                 ],
                 "summary": {
-                  "toRemove": 22,
-                  "totalEslintRules": 88,
+                  "toRemove": 21,
+                  "totalEslintRules": 87,
                 },
               },
               {
@@ -160,17 +178,21 @@ describe("reduce functionality", () => {
           }
         `);
       });
-    });
 
-    describe("generateReport", () => {
+      it("should include type-aware rule no-floating-promises", () => {
+        const mainResult = results.results[0];
+        expect(mainResult.rulesToRemove).toContain(
+          "@typescript-eslint/no-floating-promises"
+        );
+      });
+
       it("should generate a comprehensive report", () => {
         const report = generateReport(results);
         expect(report).toMatchInlineSnapshot(`
-          "Found 29 ESLint rule(s) to remove across 3 config(s):
+          "Found 28 ESLint rule(s) to remove across 3 config(s):
 
           tests/fixtures/reduce/.eslintrc.js
             "@typescript-eslint/array-type": "off",
-            "@typescript-eslint/await-thenable": "off",
             "@typescript-eslint/consistent-type-imports": "off",
             "@typescript-eslint/no-duplicate-enum-values": "off",
             "@typescript-eslint/no-explicit-any": "off",
@@ -204,6 +226,48 @@ describe("reduce functionality", () => {
             "no-restricted-imports": "off",
           "
         `);
+      });
+    });
+
+    describe("with typeAware: false", () => {
+      let results: AnalysisResult;
+
+      beforeAll(async () => {
+        results = await analyzeDirectory(fixturesPath, { typeAware: false });
+      });
+
+      it("should exclude type-aware rules from removal suggestions", () => {
+        const mainResult = results.results[0];
+        // no-floating-promises is a type-aware rule and should be excluded
+        expect(mainResult.rulesToRemove).not.toContain(
+          "@typescript-eslint/no-floating-promises"
+        );
+        // restrict-template-expressions is also type-aware
+        expect(mainResult.rulesToRemove).not.toContain(
+          "@typescript-eslint/restrict-template-expressions"
+        );
+      });
+
+      it("should still include non-type-aware rules", () => {
+        const mainResult = results.results[0];
+        // These are not type-aware rules
+        expect(mainResult.rulesToRemove).toContain("curly");
+        expect(mainResult.rulesToRemove).toContain("no-console");
+        expect(mainResult.rulesToRemove).toContain(
+          "@typescript-eslint/array-type"
+        );
+      });
+
+      it("should have fewer rules to remove than typeAware: true", async () => {
+        const typeAwareResults = await analyzeDirectory(fixturesPath, {
+          typeAware: true,
+        });
+        const mainResultWithTypeAware = typeAwareResults.results[0];
+        const mainResultWithoutTypeAware = results.results[0];
+
+        expect(mainResultWithoutTypeAware.rulesToRemove.length).toBeLessThan(
+          mainResultWithTypeAware.rulesToRemove.length
+        );
       });
     });
   });

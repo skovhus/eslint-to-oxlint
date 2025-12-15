@@ -8,6 +8,95 @@ import * as jsonc from "jsonc-parser";
 // FIXME: should read this from oxc
 export const OXC_DEFAULT_ENABLED_PLUGINS = ["typescript", "unicorn", "oxc"];
 
+// Fallback list of type-aware rules from https://oxc.rs/docs/guide/usage/linter/type-aware
+// These rules require --type-aware flag and tsgolint to be installed
+const TYPE_AWARE_RULES_FALLBACK = new Set([
+  "typescript/await-thenable",
+  "typescript/no-array-delete",
+  "typescript/no-base-to-string",
+  "typescript/no-confusing-void-expression",
+  "typescript/no-deprecated",
+  "typescript/no-duplicate-type-constituents",
+  "typescript/no-floating-promises",
+  "typescript/no-for-in-array",
+  "typescript/no-implied-eval",
+  "typescript/no-meaningless-void-operator",
+  "typescript/no-misused-promises",
+  "typescript/no-misused-spread",
+  "typescript/no-mixed-enums",
+  "typescript/no-redundant-type-constituents",
+  "typescript/no-unnecessary-boolean-literal-compare",
+  "typescript/no-unnecessary-template-expression",
+  "typescript/no-unnecessary-type-arguments",
+  "typescript/no-unnecessary-type-assertion",
+  "typescript/no-unsafe-argument",
+  "typescript/no-unsafe-assignment",
+  "typescript/no-unsafe-call",
+  "typescript/no-unsafe-enum-comparison",
+  "typescript/no-unsafe-member-access",
+  "typescript/no-unsafe-return",
+  "typescript/no-unsafe-type-assertion",
+  "typescript/no-unsafe-unary-minus",
+  "typescript/non-nullable-type-assertion-style",
+  "typescript/only-throw-error",
+  "typescript/prefer-includes",
+  "typescript/prefer-nullish-coalescing",
+  "typescript/prefer-promise-reject-errors",
+  "typescript/prefer-reduce-type-parameter",
+  "typescript/prefer-return-this-type",
+  "typescript/promise-function-async",
+  "typescript/related-getter-setter-pairs",
+  "typescript/require-array-sort-compare",
+  "typescript/require-await",
+  "typescript/restrict-plus-operands",
+  "typescript/restrict-template-expressions",
+  "typescript/return-await",
+  "typescript/strict-boolean-expressions",
+  "typescript/switch-exhaustiveness-check",
+  "typescript/unbound-method",
+  "typescript/use-unknown-in-catch-callback-variable",
+]);
+
+// Cache for dynamically fetched type-aware rules
+let typeAwareRulesCache: Set<string> | null = null;
+
+/**
+ * Fetch type-aware rules from oxc.rs docs page
+ * Falls back to hardcoded list if fetch fails
+ */
+export function getTypeAwareRules(): Set<string> {
+  if (typeAwareRulesCache) {
+    return typeAwareRulesCache;
+  }
+
+  try {
+    // Try to fetch from docs page
+    const result = execSync(
+      'curl -s "https://oxc.rs/docs/guide/usage/linter/type-aware" 2>/dev/null | grep -oE "typescript/[a-z-]+"',
+      { encoding: "utf8", timeout: 5000 }
+    );
+
+    const rules = new Set(
+      result
+        .trim()
+        .split("\n")
+        .filter((r) => r.startsWith("typescript/"))
+    );
+
+    if (rules.size > 0) {
+      typeAwareRulesCache = rules;
+      return rules;
+    }
+  } catch {
+    console.error(
+      "Failed to fetch type-aware rules from oxc.rs docs page, using fallback"
+    );
+  }
+
+  typeAwareRulesCache = TYPE_AWARE_RULES_FALLBACK;
+  return TYPE_AWARE_RULES_FALLBACK;
+}
+
 export type Severity = "error" | "warn" | "off";
 
 export interface ESLintRule {
@@ -85,6 +174,14 @@ export class OxlintRulesRegistry {
       this.defaultEnabledRuleNames.has(normalizedName) ||
       this.defaultEnabledRuleNames.has(ruleNameWithoutScope)
     );
+  }
+
+  /**
+   * Check if a rule requires type-aware linting (--type-aware flag)
+   */
+  public isTypeAware(ruleName: string): boolean {
+    const normalizedName = normalizeOxlintRuleName(ruleName);
+    return getTypeAwareRules().has(normalizedName);
   }
 
   /**
@@ -516,6 +613,7 @@ export function loadOxlintConfig(
 /**
  * Load oxlint configuration using the --print-config command
  * This gives us the actual resolved configuration that oxlint would use
+ * Always runs with --type-aware to get the full rule set
  */
 export function loadOxlintConfigViaCommand(
   oxlintConfigPath: string

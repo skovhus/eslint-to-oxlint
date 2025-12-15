@@ -26,7 +26,7 @@ Generates initial Oxlint files (best effort) and dump recommendations around rem
 Once you have Oxlint configured alongside ESLint, use the reduce script to find rules you can remove from ESLint (since Oxlint already handles them):
 
 ```sh
-npx tsx src/reduce.ts ../my-project
+npx tsx src/reduce.ts ../my-project --type-aware=true|false
 ```
 
 This analyzes both configs and outputs a report showing which ESLint rules are redundant and can be safely disabled.
